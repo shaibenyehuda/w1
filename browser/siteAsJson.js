@@ -1,4 +1,4 @@
-siteAsJson = {
+global.siteAsJson = {
   "masterPage": {    "structure": {
       "type": "Document",
       "documentType": "document",

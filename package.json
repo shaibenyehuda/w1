@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/shaibenyehuda/w1#readme",
   "dependencies": {
-    "jsonpath": "^1.0.0"
+    "jsonpath": "^1.0.0",
+    "node-fetch": "^2.1.2"
   }
 }

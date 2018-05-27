@@ -1,4 +1,4 @@
-rendererModel = {
+global.rendererModel = {
   "metaSiteId": "7967b3ca-cd63-4e3f-8c92-39719fb3fd20",
   "siteInfo": {
     "documentType": "UGC",
