@@ -9,8 +9,9 @@ require('./projects/squeeze/cossy/rendererModel.js');
 require('./projects/squeeze/cluster.js');
 
 clusters = cluster(cossy_siteAsJson,cossy_rendererModel);
-console.log(clusters.map(cl=>`${cl.length}: ${cl[0].ar.length}-${cl.slice(-1)[0].ar.length}`))
-const pageCoverage = clusters.reduce((sum,cl)=>cl.length+sum,0);
+console.log(clusters);
+console.log(clusters.map(cl=>`${cl.pages.length}: ${cl.pages[0].ar.length}-${cl.pages.slice(-1)[0].ar.length}`))
+const pageCoverage = clusters.reduce((sum,cl)=>cl.pages.length+sum,0);
 console.log('Coverage: ' + pageCoverage + ' of ' + cossy_siteAsJson.pages.length)
 
 function fetchCategory(title,id,siteAsJson,rendererModel) {

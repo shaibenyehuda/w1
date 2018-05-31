@@ -20,5 +20,8 @@
     "jsonpath": "^1.0.0",
     "node-fetch": "^2.1.2",
     "rxjs": "^6.2.0"
+  },
+  "devDependencies": {
+    "cors-anywhere": "^0.4.1"
   }
 }
