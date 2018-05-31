@@ -49,7 +49,7 @@ function fetchCategory(title,id,siteAsJson,rendererModel) {
     )    
 }
 
-fetchCategory("Free Cars","d5df13be-7e25-4498-9da3-9eceb9511339",cossy_siteAsJson,cossy_rendererModel);
+//fetchCategory("Free Cars","d5df13be-7e25-4498-9da3-9eceb9511339",cossy_siteAsJson,cossy_rendererModel);
 //fetchCategory("Free Fruit","1ee1213d-a061-4b86-92e2-ddb12eb84d51",cossy_siteAsJson,cossy_rendererModel);
 
 //console.log(pages.map(x=>x.ar.length).join(','))

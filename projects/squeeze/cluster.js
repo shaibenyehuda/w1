@@ -26,7 +26,7 @@ global.clusterDrivers = {
 global.cluster = function(siteAsJson, rendererModel) {
 
 function paramsOfType(e) {
-    const driver = clusterDrivers[e.type];
+    const driver = global.clusterDrivers[e.type];
     if (Array.isArray(driver)) {
         var ret = {};
         driver.forEach(p=>ret[p] = e.dataObj[p])
