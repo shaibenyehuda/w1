@@ -1,15 +1,17 @@
 // utils
 function applyPath(obj,path) {
     const pathAr = path.split('$.').pop().split('#')[0].split('.');
-    var ret = pathAr.reduce((o,p)=>o[p],obj);
-    if (!ret)
-        console.log('null val for path ' + path);
-    return ret || {};
+    try {
+        return pathAr.reduce((o,p)=>o[p],obj);
+    } catch(e) {}
+    // if (!ret)
+    //     console.log('null val for path ' + path);
+    // return ret || {};
 }
 function dataObjOfPage(page,path) {
     if (!page || !page.structure) debugger;
     let comp = applyPath(page.structure.components,path);
-    return comp.dataQuery && page.data.document_data[comp.dataQuery.slice(1)] || {};
+    return comp && comp.dataQuery && page.data.document_data[comp.dataQuery.slice(1)];
 }
 
 global.clusterDrivers = {
@@ -40,7 +42,7 @@ global.cluster = function(siteAsJson, rendererModel) {
 
 function clusteringProps(p) {
     let ar = jsonpath.apply(p.structure.components,'$..*.componentType',x=>x)
-        .filter(x=>x.value.split('.').pop() != 'SiteButton')
+//        .filter(x=>x.value.split('.').pop() != 'SiteButton')
         .map(x=>x.path.join('.')+'#'+x.value);
     let s = new Set(ar);
     return { ar: Array.from(s), s, comps: p.structure.components}
@@ -73,7 +75,7 @@ function calcParamsOfCluster(cl) {
         .map(path=>{ 
             let comp = applyPath(protoPage.comps,path);
             let protoDataObj = dataObjOfPage(protoPage.value,path);
-            return {type: protoDataObj.type, comp, path, protoDataObj, protoPage: protoPage.value, paramBaseId: calcParamId(protoDataObj.type) }
+            return {type: protoDataObj.type, comp, path, protoDataObj, protoPage: protoPage.value }
         }).map(dataObjCtx=>paramsFromDriver(dataObjCtx)))
 
     function paramsFromDriver(dataObjCtx) {
@@ -83,17 +85,14 @@ function calcParamsOfCluster(cl) {
             params = driver.map(p=>({ id: p, get: page => dataObjOfPage(page,dataObjCtx.path)[p] }));
         if (typeof driver == 'object' && driver.params)
             params = driver.params(dataObjCtx,siteAsJson, rendererModel);
+        if (params.length == 0) return [];
+        let paramBaseId = calcParamId(params[0].overrideBaseId || dataObjCtx.protoDataObj.type);
         params.forEach(param=> {
-            param.id = dataObjCtx.paramBaseId + '.' + param.id;
-            if (param.overrideBaseId)
-                param.id = param.id.replace(dataObjCtx.type,param.overrideBaseId);
+            param.id = paramBaseId + '.' + param.id;
+            param.dataId = dataObjCtx.protoDataObj.id; // for UI match
             param.domain = Array.from(new Set(cl.pages.map(page=>{ 
-                try {
+                if (dataObjOfPage(page.value,dataObjCtx.path))
                     return param.get(page.value)
-                } catch (e) {
-                    console.log(e);
-                    return null;
-                }
             })));
         });
         return params;

@@ -34,10 +34,9 @@ jb.component('w1-squeeze.main', {
       {$: 'table', 
         items: '%$clusters%', 
         fields: [
-          {$: 'field', title: 'largest page', data: '%title%', width: '100' }, 
-          {$: 'field', title: 'size', data: '%pages/length%', width: '20' }, 
+          {$: 'field', title: '#pages', data: '%pages/length%', width: '20' }, 
           {$: 'field.button', 
-            title: 'params', 
+            title: '#params', 
             buttonText: '%params/length%', 
             action :{$: 'open-dialog', 
               id: '', 
@@ -61,12 +60,53 @@ jb.component('w1-squeeze.main', {
             style :{$: 'table-button.href' }
           }, 
           {$: 'field', 
-            title: 'other pages', 
-            data :{$: 'join', separator: ',', items: '%pages%', itemName: 'item', itemText: '%title%' }, 
+            title: 'sample pages (first is master)', 
+            data :{
+              $pipeline: [
+                '%pages%', 
+                {$: 'slice', start: '0', end: '5' }, 
+                {$: 'join', separator: ', ', items: '%%', itemName: 'item', itemText: '%title%' }
+              ]
+            }, 
             width: '300', 
             numeric: false
+          }, 
+          {$: 'field.control', 
+            title: 'params', 
+            control :{$: 'itemlist', 
+                  title: '', 
+                  items: '%params%', 
+                  controls: [
+                    {$: 'button', 
+                      title: '%id%', 
+                      style :{$: 'button.href' }
+                    }
+                  ], 
+                  style :{$: 'custom-style', 
+                    template: (cmp,state,h) => { 
+                      return wixToVdom(cmp.ctx.data.pages[0].value.structure);
+                      function wixToVdom(node) {
+                        if (node.components)
+                          return h('div',{class: 'box'},node.components.map(c=>wixToVdom(c)))
+                        else {
+                          const ctrl = state.ctrls.filter(ctrl=> '#' + ctrl.item.dataId == node.dataQuery)[0];
+                          if (!ctrl) return h('div');
+                          return jb.ui.item(cmp,h('div', {class: 'jb-item', 'jb-ctx': jb.ui.preserveCtx(ctrl[0].ctx)} ,
+                              ctrl.map(singleCtrl=>h(singleCtrl))),ctrl.item);
+                        }
+                      }
+                    },                  
+                    css: ">* .box { border: 1px solid #ccc; padding: 5px}\n                .box { border: 1px solid #ccc; padding: 5px}",
+                    features :{$: 'itemlist.init' }
+                  }, 
+                  itemVariable: 'item'
+                }
           }
         ], 
+        style :{$: 'table.mdl', 
+          classForTable: 'mdl-data-table mdl-js-data-table mdl-data-table--selectable mdl-shadow--2dp', 
+          classForTd: 'mdl-data-table__cell--non-numeric'
+        }, 
         visualSizeLimit: 100, 
         features :{$: 'css.margin', top: '', left: '5' }
       }
