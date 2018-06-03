@@ -66,6 +66,8 @@ function cluster(pages) {
     return clusters.filter(cl=>cl.pages.length > 1).sort((p1,p2)=>p2.pages.length-p1.pages.length);
 }
 
+const excludeTypes = ['GoogleAdSense'];
+
 function calcParamsOfCluster(cl) {
     const protoPage = cl.pages[0];
     const pathsOfObjs = protoPage.ar;
@@ -77,6 +79,7 @@ function calcParamsOfCluster(cl) {
             let protoDataObj = dataObjOfPage(protoPage.value,path);
             return {type: protoDataObj.type, comp, path, protoDataObj, protoPage: protoPage.value }
         }).map(dataObjCtx=>paramsFromDriver(dataObjCtx)))
+        .filter(param=>excludeTypes.indexOf(param.effectiveType) == -1)
 
     function paramsFromDriver(dataObjCtx) {
         const driver = global.clusterDrivers[dataObjCtx.type];
@@ -88,7 +91,9 @@ function calcParamsOfCluster(cl) {
         if (params.length == 0) return [];
         let paramBaseId = calcParamId(params[0].overrideBaseId || dataObjCtx.protoDataObj.type);
         params.forEach(param=> {
+            param.effectiveType = param.overrideBaseId || dataObjCtx.protoDataObj.type;
             param.id = paramBaseId + '.' + param.id;
+            param.baseId = paramBaseId;
             param.dataId = dataObjCtx.protoDataObj.id; // for UI match
             param.domain = Array.from(new Set(cl.pages.map(page=>{ 
                 if (dataObjOfPage(page.value,dataObjCtx.path))

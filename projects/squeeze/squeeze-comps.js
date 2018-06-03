@@ -40,16 +40,53 @@ jb.component('w1-squeeze.main', {
             buttonText: '%params/length%', 
             action :{$: 'open-dialog', 
               id: '', 
+              style :{$: 'dialog.default' }, 
               content :{$: 'group', 
                 controls: [
                   {$: 'table', 
                     items: '%params%', 
                     fields: [
                       {$: 'field', title: 'id', data: '%id%' }, 
-                      {$: 'field', title: 'domain', data: '%domain/length%' }, 
-                      {$: 'field', title: 'sample', data: '%domain[0]%' }
+                      {$: 'field.control', 
+                        title: 'domain', 
+                        control :{$: 'button', 
+                          title: '%domain/length%', 
+                          action :{$: 'open-dialog', 
+                            content :{$: 'group', 
+                              controls: [
+                                {$: 'table', 
+                                  items: '%domain%', 
+                                  fields :{$: 'field.control', 
+                                    control :{$: 'group', 
+                                      controls: [
+                                        {$: 'editable-text', 
+                                          databind: '%%', 
+                                          style :{$: 'editable-text.textarea', rows: 4, cols: 120 }
+                                        }
+                                      ], 
+                                      features :{$: 'css.height', height: '500', overflow: 'scroll' }
+                                    }
+                                  }, 
+                                  style :{$: 'table.with-headers' }, 
+                                  visualSizeLimit: 100
+                                }
+                              ], 
+                              features :{$: 'css.height', height: '700', overflow: 'scroll' }
+                            }, 
+                            title: 'domain of %id%'
+                          }, 
+                          style :{$: 'button.href' }
+                        }
+                      }, 
+                      {$: 'field', 
+                        title: 'sample', 
+                        data :{ $pipeline: ['%domain[0]%', ctx => ctx.data.slice(0,100)] }
+                      }
                     ], 
-                    style :{$: 'table.with-headers' }, 
+                    style :{$: 'table.mdl', 
+                      classForTable: 'mdl-data-table mdl-js-data-table mdl-data-table--selectable mdl-shadow--2dp', 
+                      classForTd: 'mdl-data-table__cell--non-numeric'
+                    }, 
                     visualSizeLimit: 100
                   }
                 ]
@@ -74,16 +111,39 @@ jb.component('w1-squeeze.main', {
           {$: 'field.control', 
             title: 'params', 
             control :{$: 'itemlist', 
-                  title: '', 
-                  items: '%params%', 
-                  controls: [
-                    {$: 'button', 
-                      title: '%id%', 
-                      style :{$: 'button.href' }
-                    }
-                  ], 
-                  style :{$: 'custom-style', 
-                    template: (cmp,state,h) => { 
+              title: '', 
+              items: '%params%', 
+              controls: [
+                {$: 'button', 
+                  title: '%baseId%', 
+                  action :{$: 'open-dialog', 
+                    content :{$: 'group', 
+                      controls: [
+                        {$: 'table', 
+                          items: '%domain%', 
+                          fields :{$: 'field.control', 
+                            control :{$: 'group', 
+                              controls: [
+                                {$: 'editable-text', 
+                                  databind: '%%', 
+                                  style :{$: 'editable-text.textarea', rows: 4, cols: 120 }
+                                }
+                              ]
+                            }
+                          }, 
+                          style :{$: 'table.with-headers' }, 
+                          visualSizeLimit: 100
+                        }
+                      ], 
+                      features :{$: 'css.height', height: '700', overflow: 'scroll' }
+                    }, 
+                    title: 'domain of %baseId%'
+                  }, 
+                  style :{$: 'button.href' }
+                }
+              ], 
+              style :{$: 'custom-style', 
+                template: (cmp,state,h) => { 
                       return wixToVdom(cmp.ctx.data.pages[0].value.structure);
                       function wixToVdom(node) {
                         if (node.components)
@@ -95,12 +155,12 @@ jb.component('w1-squeeze.main', {
                               ctrl.map(singleCtrl=>h(singleCtrl))),ctrl.item);
                         }
                       }
-                    },                  
-                    css: ">* .box { border: 1px solid #ccc; padding: 5px}\n                .box { border: 1px solid #ccc; padding: 5px}",
-                    features :{$: 'itemlist.init' }
-                  }, 
-                  itemVariable: 'item'
-                }
+                    }, 
+                css: ">* .box { border: 1px solid #ccc; padding: 5px}\n                .box { border: 1px solid #ccc; padding: 5px}", 
+                features :{$: 'itemlist.init' }
+              }, 
+              itemVariable: 'item'
+            }
           }
         ], 
         style :{$: 'table.mdl', 
