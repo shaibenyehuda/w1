@@ -39,20 +39,16 @@ jb.component('w1-squeeze.main', {
           {$: 'field', title: '#pages', data: '%pages/length%', width: '20' }, 
           {$: 'field.button', 
             title: '#params', 
-            buttonText: '%params/length%', 
+            buttonText: '%paramObjs/params/length%', 
             action :{$: 'open-dialog', 
               id: '', 
               style :{$: 'dialog.default' }, 
               content :{$: 'group', 
                 controls: [
                   {$: 'table', 
-                    items: '%params%', 
+                    items: '%paramObjs/params%', 
                     fields: [
                       {$: 'field', title: 'id', data: '%id%' }, 
-                      {$: 'field.control', 
-                        title: 'name', 
-                        control :{$: 'editable-text', databind: '%name%' }
-                      }, 
                       {$: 'field.control', 
                         title: 'domain', 
                         control :{$: 'button', 
@@ -112,7 +108,7 @@ jb.component('w1-squeeze.main', {
             title: 'params', 
             control :{$: 'itemlist', 
               title: '', 
-              items: '%params%', 
+              items: '%paramObjs%', 
               controls: [
                 {$: 'button', 
                   title: '%id%', 

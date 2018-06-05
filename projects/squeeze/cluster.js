@@ -82,7 +82,7 @@ function calcParamsOfCluster(cl) {
             const driver = clusterDrivers[protoDataObj.type];
             var pagesWithParam = cl.pages.filter(page=>dataObjOfPage(page.value,path));
             if (driver) {
-                var effectiveType = driver.paramBaseId ? driver.paramBaseId({path,protoDataObj}) : protoDataObj.type;
+                var effectiveType = driver.overrideBaseId ? driver.overrideBaseId({path,protoDataObj}) : protoDataObj.type;
                 var id = calcParamId(effectiveType);
                 var params = [];
                 if (Array.isArray(driver))
@@ -102,9 +102,10 @@ function calcParamsOfCluster(cl) {
                 if (pagesWithParam.length < cl.pages.length)
                     params.push({id: 'has'+id, domain: ['yes','no'], })
             }
-            return {id, effectiveType, path, protoDataObj, params, pagesWithParam: pagesWithParam.length }
+            return {id, effectiveType, path, protoDataObj, params, pagesWithParam: pagesWithParam.length, dataId: protoDataObj.id }
         })
-        .filter(paramObj=>excludeTypes.indexOf[paramObj.effectiveType] != -1);
+        .filter(paramObj=>
+            excludeTypes.indexOf[paramObj.effectiveType] != -1);
     
     function calcParamId(name) {
         if (!paramIds[name]) {
