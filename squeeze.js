@@ -8,7 +8,7 @@ require('./projects/squeeze/cossy/siteAsJson.js');
 require('./projects/squeeze/cossy/rendererModel.js');
 require('./projects/squeeze/cluster.js');
 
-clusters = cluster(cossy_siteAsJson,cossy_rendererModel);
+clusters = pageClustering(cossy_siteAsJson,cossy_rendererModel);
 console.log(clusters);
 console.log(clusters.map(cl=>`${cl.pages.length}: ${cl.pages[0].ar.length}-${cl.pages.slice(-1)[0].ar.length}`))
 const pageCoverage = clusters.reduce((sum,cl)=>cl.pages.length+sum,0);
@@ -40,7 +40,11 @@ function fetchCategory(title,id,siteAsJson,rendererModel) {
         .filter(x=>x.path[4] == 'components') // TODO: structure
         .map(({path,value})=>({path,value,id:value.id,title:siteAsJson.pages[path[2]].title}));
    
-    from(items.filter(x=>x.title == title)).pipe(flatMap(x=>galleryImages(x.value)),filter(x=>x),flatMap(x=>x.items),toArray()).subscribe(items=>
+    from(items.filter(x=>x.title == title)).pipe(
+        flatMap(x=>galleryImages(x.value)),
+        filter(x=>x),
+        flatMap(x=>x.items),
+        toArray()).subscribe(items=>
         fs.writeFileSync('/Users/shaiby/Downloads/imported-items.csv',
             '"Title","category","photo","page","ID","Created date","Updated date","Owner"\n'+
             items.map(i=> { 

@@ -1,6 +1,8 @@
-jb.const('cossy_siteAsJson',global.cossy_siteAsJson);
-jb.const('cossy_rendererModel',global.cossy_rendererModel);
-jb.const('clusters',global.cluster(global.cossy_siteAsJson,global.cossy_rendererModel));
+clusters = pageClustering(siteAsJson,rendererModel);
+
+jb.const('cossy_siteAsJson',siteAsJson);
+jb.const('cossy_rendererModel',rendererModel);
+jb.const('clusters',clusters);
 
 jb.component('w1-squeeze.params', {
   type: 'control', 
@@ -48,27 +50,25 @@ jb.component('w1-squeeze.main', {
                     fields: [
                       {$: 'field', title: 'id', data: '%id%' }, 
                       {$: 'field.control', 
+                        title: 'name', 
+                        control :{$: 'editable-text', databind: '%name%' }
+                      }, 
+                      {$: 'field.control', 
                         title: 'domain', 
                         control :{$: 'button', 
                           title: '%domain/length%', 
                           action :{$: 'open-dialog', 
                             content :{$: 'group', 
                               controls: [
-                                {$: 'table', 
+                                {$: 'itemlist', 
                                   items: '%domain%', 
-                                  fields :{$: 'field.control', 
-                                    control :{$: 'group', 
-                                      controls: [
-                                        {$: 'editable-text', 
-                                          databind: '%%', 
-                                          style :{$: 'editable-text.textarea', rows: 4, cols: 120 }
-                                        }
-                                      ], 
-                                      features :{$: 'css.height', height: '500', overflow: 'scroll' }
-                                    }
+                                  controls :{$: 'editable-text', 
+                                    databind: '%%', 
+                                    style :{$: 'editable-text.textarea', rows: 4, cols: 120 }
                                   }, 
-                                  style :{$: 'table.with-headers' }, 
-                                  visualSizeLimit: 100
+                                  style :{$: 'itemlist.ul-li' }, 
+                                  itemVariable: 'item', 
+                                  features: [{$: 'css.height', height: '500', overflow: 'scroll' }]
                                 }
                               ], 
                               features :{$: 'css.height', height: '700', overflow: 'scroll' }
@@ -115,7 +115,7 @@ jb.component('w1-squeeze.main', {
               items: '%params%', 
               controls: [
                 {$: 'button', 
-                  title: '%baseId%', 
+                  title: '%id%', 
                   action :{$: 'open-dialog', 
                     content :{$: 'group', 
                       controls: [
