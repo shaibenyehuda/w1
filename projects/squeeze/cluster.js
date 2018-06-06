@@ -20,12 +20,31 @@ pageClustering = function(siteAsJson, rendererModel) {
         StyledText: ['text'],
         LinkableButton: {
             params: ctx => {
-                const getAnchorLink = page => page.data.document_data[dataObjOfPage(page,ctx.path).link.slice(1)];
                 return [
-                    { id: 'label', get: page=> dataObjOfPage(page,ctx.path).label },
-                    { id: 'buttonType', get: page=> dataObjOfPage(page,ctx.path).type },
-                    { id: 'anchorName', get: page=> getAnchorLink(page,ctx.path).anchorName },
-                    { id: 'targetPageId', get: page=> getAnchorLink(page,ctx.path).pageId },
+                    { id: 'this', get: page=> { 
+                        try {
+                            const dataObj = dataObjOfPage(page,ctx.path);
+                            const anchorLink = page.data.document_data[dataObj.link.slice(1)];
+                            const anchorName = anchorLink.anchorName;
+                            return dataObj.label + ',' + siteAsJson.pages.filter(p=>p.structure.id == anchorLink.pageId.slice(1))[0].title;
+                        } catch (e) {
+                            console.log(dataObj,page,ctx,e);
+                        }
+                        }
+                    },
+                ]
+            }
+        },
+        ImageButton: {
+            params: ctx => {
+                return [
+                    { id: 'this', get: page=> { 
+                        const dataObj = dataObjOfPage(page,ctx.path);
+                        const anchorLink = page.data.document_data[dataObj.link.slice(1)];
+                        const anchorName = anchorLink.anchorName;
+                        return siteAsJson.pages.filter(p=>p.structure.id == anchorLink.pageId.slice(1))[0].title;
+                    }
+                    },
                 ]
             }
         },
@@ -90,22 +109,23 @@ function calcParamsOfCluster(cl) {
                 if (typeof driver == 'object' && driver.params)
                     params = driver.params({path,protoDataObj});
                 params = params.map(param=> Object.assign(param,{
-                    id: id + '.' + param.id,
+                    id: (param.id == 'this') ? id  : (id+ '.' + param.id),
                     domain: Array.from(new Set(pagesWithParam.map(page=>{ 
                         try {
                             if (dataObjOfPage(page.value,path))
                                 return param.get(page.value)
                         } catch (e) {}
                     })))
-                })).filter(param=>param.domain.length > 1);
+                }))
+                .filter(param=>param.domain.length > 1);
 
-                if (pagesWithParam.length < cl.pages.length)
-                    params.push({id: 'has'+id, domain: ['yes','no'], })
+//                if (pagesWithParam.length < cl.pages.length)
+//                    params.push({id: 'has'+id, domain: ['yes','no'], })
             }
             return {id, effectiveType, path, protoDataObj, params, pagesWithParam: pagesWithParam.length, dataId: protoDataObj.id }
         })
-        .filter(paramObj=>
-            excludeTypes.indexOf[paramObj.effectiveType] != -1);
+        .filter(paramObj=>excludeTypes.indexOf(paramObj.effectiveType) == -1)
+        .filter(paramObj=>paramObj.params && paramObj.params.length);
     
     function calcParamId(name) {
         if (!paramIds[name]) {
@@ -117,16 +137,36 @@ function calcParamsOfCluster(cl) {
             return calcParamId(name+'2');
         else
             return calcParamId(match[1]+(Number(match[2])+1));
+        }
     }
-}
 
-const pages = siteAsJson.pages.map((page,i)=> 
-        Object.assign({value: page, index:i , title: page.title }, clusteringProps(page)))
-        .sort((p1,p2)=>p2.ar.length - p1.ar.length);
-let clusters = cluster(pages);
-clusters.forEach(cl=>calcParamsOfCluster(cl));
+    function calcDB(cl) {
+        cl.db = {};
+        cl.pages.forEach(page=>{
+            let pageVals = { title: page.title};
+            cl.paramObjs.forEach(paramObj=>paramObj.params.forEach(param=>{
+                let val = '';
+                try {
+                    val = param.get(page.value);
+                } catch (e) {}
+                pageVals[param.id] = val;
+            }
+            ));
+            cl.db[page.title] = pageVals;
+        })
+        cl.dbAsStr = `export const Like${cl.title.replace(/\s/g,'')} = ` + JSON.stringify(cl.db,null,2);
+    }
 
-return clusters;
+    const pages = siteAsJson.pages.map((page,i)=> 
+            Object.assign({value: page, index:i , title: page.title }, clusteringProps(page)))
+            .sort((p1,p2)=>p2.ar.length - p1.ar.length);
+    let clusters = cluster(pages);
+    clusters.forEach(cl=> { 
+        calcParamsOfCluster(cl);
+        calcDB(cl); 
+    });
+
+    return clusters;
 
 }
 
