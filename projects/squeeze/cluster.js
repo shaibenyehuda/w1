@@ -84,7 +84,7 @@ function clusterPages(pages) {
     let clusters = [];
     pages.forEach((page,i)=>{
         if (page.cluster) return;
-        let cluster = new Cluster(page);
+        let cluster = clusterCalc.construct(page);
         clusters.push(cluster);
         pages.slice(i).forEach(toCompare=>{
             if (!toCompare.cluster && toCompare.ar.filter(x=>!page.s.has(x)).length == 0) {
@@ -96,25 +96,27 @@ function clusterPages(pages) {
     return clusters.filter(cl=>cl.pages.length > 1).sort((p1,p2)=>p2.pages.length-p1.pages.length);
 }
 
-class Cluster {
-    constructor(page) {
-        this.page = page;
-        this.pages = [page];
-        this.title = page.value.title;
-        this.id = 'Like_'+ page.value.title.replace(/\W/g,'_');
-        page.cluster = this;
-    }
-    calcParams() {
-        const protoPage = this.pages[0];
+const clusterCalc = {
+    construct: page => {
+        let self = {};
+        self.page = page;
+        self.pages = [page];
+        self.title = page.value.title;
+        self.id = 'Like_'+ page.value.title.replace(/\W/g,'_');
+        page.cluster = self;
+        return self;
+    },
+    calcParams: self => {
+        const protoPage = self.pages[0];
         const pathsOfObjs = protoPage.ar;
         let paramIds = {};
-        this.paramObjs = pathsOfObjs
+        self.paramObjs = pathsOfObjs
             .filter(path=>applyPath(protoPage.comps,path).dataQuery)
             .map(path=>{ 
                 const comp = applyPath(protoPage.comps,path);
                 const protoDataObj = dataObjOfPage(protoPage.value,path);
                 const driver = clusterDrivers[protoDataObj.type];
-                var pagesWithParam = this.pages.filter(page=>dataObjOfPage(page.value,path));
+                var pagesWithParam = self.pages.filter(page=>dataObjOfPage(page.value,path));
                 if (driver) {
                     var effectiveType = driver.overrideBaseId ? driver.overrideBaseId({path,protoDataObj}) : protoDataObj.type;
                     var id = calcParamId(effectiveType);
@@ -134,7 +136,7 @@ class Cluster {
                     }))
                     .filter(param=>param.domain.length > 1);
     
-    //                if (pagesWithParam.length < this.pages.length)
+    //                if (pagesWithParam.length < self.pages.length)
     //                    params.push({id: 'has'+id, domain: ['yes','no'], })
                 }
                 return {id, effectiveType, path, protoDataObj, params, pagesWithParam: pagesWithParam.length, dataId: protoDataObj.id }
@@ -153,12 +155,12 @@ class Cluster {
             else
                 return calcParamId(match[1]+(Number(match[2])+1));
             }
-        }
-        calcDB() {
-            this.db = {};
-            this.pages.forEach(page=>{
+        },
+        calcDB: self => {
+            self.db = {};
+            self.pages.forEach(page=>{
                 let pageVals = { title: page.title};
-                this.paramObjs.forEach(paramObj=>paramObj.params.forEach(param=>{
+                self.paramObjs.forEach(paramObj=>paramObj.params.forEach(param=>{
                     let val = '';
                     try {
                         val = param.get(page.value);
@@ -166,19 +168,21 @@ class Cluster {
                     pageVals[param.id] = val;
                 }
                 ));
-                this.db[page.title] = pageVals;
+                self.db[page.title] = pageVals;
             })
-            this.dbAsStr = `export const ${this.id} = ` + JSON.stringify(this.db,null,2);
-        }
-        addRouterFiles() {
-            ds.wixCode.fileSystem.writeFile(fileDesc('backend/routers.js'),routerFileContent.replace(/GENERIC_PAGE/g,this.id));
-            ds.wixCode.fileSystem.writeFile(fileDesc(`backend/${this.id}_db.js`),this.dbAsStr);
-        }
-        addRouter() {
-            ds.routers.add(_.find(rendered.props.siteData.rendererModel.clientSpecMap.toJS(),{appDefinitionId: "wix-code"}),
+            self.dbAsStr = `export const ${self.id} = ` + JSON.stringify(self.db,null,2);
+        },
+        addRouterFiles: self => {
+            const routersFile = fileDesc('backend/routers.js');
+            ds.wixCode.fileSystem.readFile(routerFile).then(content=>
+                ds.wixCode.fileSystem.writeFile(routersFile, ''+content+ routerFileContent.replace(/GENERIC_PAGE/g,self.id)));
+            ds.wixCode.fileSystem.writeFile(fileDesc(`backend/${self.id}_db.js`),self.dbAsStr);
+        },
+        addRouter: self => {
+            ds.routers.add(_.find(frames[0].rendered.props.siteData.rendererModel.clientSpecMap.toJS(),{appDefinitionId: "wix-code"}),
             null,
             {
-                prefix: this.id, config: { routerFunctionName: `${this.id}_Router`, siteMapFunctionName: `${this.id}_SiteMap` }
+                prefix: self.id, config: { routerFunctionName: `${self.id}_Router`, siteMapFunctionName: `${self.id}_SiteMap` }
             })
         }
             //ds.wixCode.fileSystem.writeFile(`public/pages/${cl.pages[0].value.structure.id}.js`,cl.wixCode)
@@ -189,9 +193,10 @@ class Cluster {
             .sort((p1,p2)=>p2.ar.length - p1.ar.length);
     let clusters = clusterPages(pages);
     clusters.forEach(cl=> { 
-        cl.calcParams();
-        cl.calcDB(); 
+        clusterCalc.calcParams(cl);
+        clusterCalc.calcDB(cl); 
     });
+    window.clusterCalc = clusterCalc;
 
     return clusters;
 }
