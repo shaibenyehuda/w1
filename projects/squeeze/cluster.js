@@ -1,3 +1,6 @@
+// if (typeof window == 'undefined')
+//     window = global.win;
+
 pageClustering = function(siteAsJson, rendererModel) {
     const excludeTypes = ['GoogleAdSense'];
 
@@ -15,11 +18,31 @@ pageClustering = function(siteAsJson, rendererModel) {
         const comp = applyPath(page.structure.components,path);
         return comp && comp.dataQuery && page.data.document_data[comp.dataQuery.slice(1)];
     }
+    function nickNameOfPage(page,path) {
+        if (!page || !page.structure) debugger;
+        const comp = applyPath(page.structure.components,path);
+        const res = comp && comp.connectionQuery && page.data.connections_data[comp.connectionQuery].items[0].role;
+        if (!res) debugger;
+        return res;
+    }
+    function translatePageRef(pageId) {
+        const pageName = siteAsJson.pages.filter(pg=>pg.structure.id == pageId)[0].title.replace(/\W/g,'');
+        const cluster = clusters.filter(cl=>cl.pages.filter(pg => pg.value.structure.id == pageId).length)[0];
+        if (!cluster)
+            return `/${pageName}`;
+        return `/${cluster.id}/${pageName}`;
+    }
     
     fileDesc = fn => ({ virtual: true, localTimeStamp: 0, eTag: "\"virtual\"", name: fn.split('/').pop(), length: 0, directory: false, location: fn, attributes: { readOnly: false } });
     
     const clusterDrivers = {
-        StyledText: ['text'],
+        StyledText: { params: ctx => ([
+            { id: 'text', 
+                get: page=> 
+                    dataObjOfPage(page,ctx.path).text, 
+                wixCodeSetter: 'html' 
+            },
+        ]) },
         LinkableButton: {
             params: ctx => {
                 return [
@@ -28,11 +51,11 @@ pageClustering = function(siteAsJson, rendererModel) {
                             return dataObj && dataObj.label;
                         }
                     },
-                    { id: 'url', get: page=> { 
+                    { id: 'link' , get: page=> { 
                         try {
                             const dataObj = dataObjOfPage(page,ctx.path);
                             const anchorLink = page.data.document_data[dataObj.link.slice(1)];
-                            return anchorLink.pageId + ',' + siteAsJson.pages.filter(p=>p.structure.id == anchorLink.pageId.slice(1))[0].title;
+                            return translatePageRef(anchorLink.pageId.slice(1));
                         } catch (e) {
                             console.log(dataObj,page,ctx,e);
                         }
@@ -47,7 +70,6 @@ pageClustering = function(siteAsJson, rendererModel) {
                     { id: 'this', get: page=> { 
                         const dataObj = dataObjOfPage(page,ctx.path);
                         const anchorLink = page.data.document_data[dataObj.link.slice(1)];
-                        const anchorName = anchorLink.anchorName;
                         return siteAsJson.pages.filter(p=>p.structure.id == anchorLink.pageId.slice(1))[0].title;
                     }
                     },
@@ -64,7 +86,7 @@ pageClustering = function(siteAsJson, rendererModel) {
                        
                 return [ { id: 'this', 
                     get: page=> 
-                        `http://progallery.wix.com/gallery.html?compId=${applyPath(page.structure.components,path).id}&instance=${instance}`
+                        `http://progallery.wix.com/gallery.html?compId=${applyPath(page.structure.components,ctx.path).id}&instance=${instance}`
                 } ]
             }
         },
@@ -96,13 +118,16 @@ function clusterPages(pages) {
     return clusters.filter(cl=>cl.pages.length > 1).sort((p1,p2)=>p2.pages.length-p1.pages.length);
 }
 
+let notSupportedMessage = new Set();
+
 const clusterCalc = {
     construct: page => {
         let self = {};
         self.page = page;
+        self.pageId = page.value.structure.id;
         self.pages = [page];
         self.title = page.value.title;
-        self.id = 'Like_'+ page.value.title.replace(/\W/g,'_');
+        self.id = 'Like'+ page.value.title.replace(/\W/g,'');
         page.cluster = self;
         return self;
     },
@@ -110,35 +135,44 @@ const clusterCalc = {
         const protoPage = self.pages[0];
         const pathsOfObjs = protoPage.ar;
         let paramIds = {};
+        self.notSupportedComps = self.notSupportedComps || {};
         self.paramObjs = pathsOfObjs
             .filter(path=>applyPath(protoPage.comps,path).dataQuery)
             .map(path=>{ 
                 const comp = applyPath(protoPage.comps,path);
                 const protoDataObj = dataObjOfPage(protoPage.value,path);
                 const driver = clusterDrivers[protoDataObj.type];
+                if (!driver)
+                    self.notSupportedComps[protoDataObj.type] = (self.notSupportedComps[protoDataObj.type] || 0)+1;
+ 
                 var pagesWithParam = self.pages.filter(page=>dataObjOfPage(page.value,path));
-                if (driver) {
-                    var effectiveType = driver.overrideBaseId ? driver.overrideBaseId({path,protoDataObj}) : protoDataObj.type;
-                    var id = calcParamId(effectiveType);
-                    var params = [];
-                    if (Array.isArray(driver))
-                        params = driver.map(p=>({ id: p, get: page => dataObjOfPage(page,path)[p] }));
-                    if (typeof driver == 'object' && driver.params)
-                        params = driver.params({path,protoDataObj});
-                    params = params.map(param=> Object.assign(param,{
-                        id: (param.id == 'this') ? id  : (id+ '.' + param.id),
-                        domain: Array.from(new Set(pagesWithParam.map(page=>{ 
-                            try {
-                                if (dataObjOfPage(page.value,path))
-                                    return param.get(page.value)
-                            } catch (e) {}
-                        }).filter(x=>x)))
-                    }))
-                    .filter(param=>param.domain.length > 1);
+                var effectiveType = driver && driver.overrideBaseId ? driver.overrideBaseId({path,protoDataObj}) : protoDataObj.type;
+                var id = calcParamId(effectiveType);
+                var params = [];
+                if (typeof driver == 'object' && driver.params)
+                    params = driver.params({path,protoDataObj});
+                else if (!driver)
+                    params = Object.getOwnPropertyNames(protoDataObj).filter(p=>p!='id')
+                        .map(p=>({ id: p, get: page => {
+                            let ret = JSON.stringify(dataObjOfPage(page,path)[p]);
+                            if (typeof ret == 'string' && ret.indexOf('#dataItem-') == 0)
+                                ret = page.data.document_data[ret.slice(1)];
+                            return ret;
+                        }
+                    }));
+
+                params = params.map(param=> Object.assign(param,{
+                    id: (param.id == 'this') ? id  : (id+ '_' + param.id),
+                    wixCodeSetter: param.wixCodeSetter || param.id,
+                    domain: Array.from(new Set(pagesWithParam.map(page=>{ 
+                        try {
+                            if (dataObjOfPage(page.value,path))
+                                return param.get(page.value)
+                        } catch (e) {}
+                    }).filter(x=>x)))
+                }))
+                .filter(param=>param.domain.length > 1);
     
-    //                if (pagesWithParam.length < self.pages.length)
-    //                    params.push({id: 'has'+id, domain: ['yes','no'], })
-                }
                 return {id, effectiveType, path, protoDataObj, params, pagesWithParam: pagesWithParam.length, dataId: protoDataObj.id }
             })
             .filter(paramObj=>excludeTypes.indexOf(paramObj.effectiveType) == -1)
@@ -168,37 +202,100 @@ const clusterCalc = {
                     pageVals[param.id] = val;
                 }
                 ));
-                self.db[page.title] = pageVals;
+                self.db[page.title.replace(/\W/g,'')] = pageVals;
             })
             self.dbAsStr = `export const ${self.id} = ` + JSON.stringify(self.db,null,2);
         },
-        addRouterFiles: self => {
-            const routersFile = fileDesc('backend/routers.js');
-            ds.wixCode.fileSystem.readFile(routerFile).then(content=>
-                ds.wixCode.fileSystem.writeFile(routersFile, ''+content+ routerFileContent.replace(/GENERIC_PAGE/g,self.id)));
-            ds.wixCode.fileSystem.writeFile(fileDesc(`backend/${self.id}_db.js`),self.dbAsStr);
-        },
         addRouter: self => {
-            ds.routers.add(_.find(frames[0].rendered.props.siteData.rendererModel.clientSpecMap.toJS(),{appDefinitionId: "wix-code"}),
-            null,
-            {
-                prefix: self.id, config: { routerFunctionName: `${self.id}_Router`, siteMapFunctionName: `${self.id}_SiteMap` }
-            })
+            const routerPtr = ds.routers.add(
+                Object.assign({},_.find(frames[0].rendered.props.siteData.rendererModel.clientSpecMap.toJS()),{ 
+                    appDefinitionId: "wix-code", 
+                    prefix: self.id, 
+                    config: { routerFunctionName: `${self.id}_Router`, siteMapFunctionName: `${self.id}_SiteMap` } 
+                }));
+            ds.routers.pages.connect(routerPtr, {type: "DESKTOP", id: self.pageId }, self.pageId);
+        },
+        wixCode: self => {
+            return `import wixWindow from 'wix-window';\n\n$w.onReady(function () { \n const data = wixWindow.getRouterData();\n`+
+                self.paramObjs.map(paramObj=>{
+                    const nickName = nickNameOfPage(self.page.value,paramObj.path);
+                    return paramObj.params.map(param=> 
+                        `  $w('#${nickName}').${param.wixCodeSetter} = data.${param.id};\n`)
+                        .join('')
+            }).join('') + '\n});'
         }
             //ds.wixCode.fileSystem.writeFile(`public/pages/${cl.pages[0].value.structure.id}.js`,cl.wixCode)
     }
-            
-    const pages = siteAsJson.pages.map((page,i)=> 
+
+    return ({
+        clusterCalc,
+        run() {
+            this.init();
+            this.removeRedundentPages();
+            this.injectDB();
+            this.injectRouters();
+            this.injectWixCode();
+        },
+        init: () => {
+            const pages = siteAsJson.pages.map((page,i)=> 
             Object.assign({value: page, index:i , title: page.title }, clusteringProps(page)))
             .sort((p1,p2)=>p2.ar.length - p1.ar.length);
-    let clusters = clusterPages(pages);
-    clusters.forEach(cl=> { 
-        clusterCalc.calcParams(cl);
-        clusterCalc.calcDB(cl); 
-    });
-    window.clusterCalc = clusterCalc;
+            window.clusters = clusterPages(pages); // clusters must be global. It is used by translatePageRef()
+            clusters.forEach(cl=> { 
+                clusterCalc.calcParams(cl);
+                clusterCalc.calcDB(cl); 
+            });
+            return clusters;
+        },
+        injectDB: () => {
+            clusters.forEach(cl=>ds.wixCode.fileSystem.writeFile(fileDesc(`backend/${cl.id}_db.js`),cl.dbAsStr));
+            const routersFile = fileDesc('backend/routers.js');
+            let content = 'import {ok, notFound, WixRouterSitemapEntry} from "wix-router";\n' + 
+                clusters.map(cl=> routerFileContent.replace(/PAGE_ID/g,cl.id).replace(/PAGE_TITLE/g,cl.title)).join('\n');
+            ds.wixCode.fileSystem.writeFile(routersFile, content);
+            //clusters.forEach(cl=>clusterCalc.addRouter(cl) );
+        },
+        notSupportedComps: () => {
+            let result = {};
+            clusters.forEach(cl=>Object.getOwnPropertyNames(cl.notSupportedComps)
+                .forEach(p=> result[p] = (result[p] || 0)+(cl.notSupportedComps[p] || 0) ) );
+            return Object.getOwnPropertyNames(result).map(p=>`${p} - ${result[p]}`);
+        },
 
-    return clusters;
+        injectRouters: () => {
+            clusters.forEach(cl=>clusterCalc.addRouter(cl) );
+        },
+        injectWixCode: () => {
+            clusters.forEach(cl=>ds.wixCode.fileSystem.writeFile(fileDesc(`public/pages/${cl.pageId}.js`), clusterCalc.wixCode(cl)) );
+        },
+        storeToSessionStorage: () => 
+            sessionStorage.setItem('clusters',JSON.stringify(fixJSON(clusters))),
+
+        loadFromSessionStorage: 
+             sessionStorage.getItem('clusters'),
+             
+        removeRedundentPages: () => {
+            clusters.forEach(cl=>cl.pages.slice(1).forEach(page=> {
+                    console.log('removing page ' + page.value.title);
+                    ds.pages.remove(page.value.structure.id,_=>console.log(page.value.title + ' page removed')) 
+                } ));
+            // ds.waitForChangesApplied
+        },
+    
+        _removeMostOfTheRecurringPages: () => {
+            clusters.forEach(cl=>cl.pages.slice(5).forEach(page=> {
+                    console.log('removing page ' + page.value.title);
+                    ds.pages.remove(page.value.structure.id,_=>console.log(page.value.title + ' page removed')) 
+                } ));
+            // ds.waitForChangesApplied
+        },
+        statistics: () => {
+            console.log(clusters);
+            console.log(clusters.map(cl=>`${cl.pages.length}: ${cl.pages[0].ar.length}-${cl.pages.slice(-1)[0].ar.length}`))
+            pageCoverage = clusters.reduce((sum,cl)=>cl.pages.length+sum,0);
+            console.log('Coverage: ' + pageCoverage + ' of ' + siteAsJson.pages.length);
+        }
+    })
 }
 
 //window.global = global || {}

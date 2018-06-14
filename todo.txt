@@ -1,0 +1,9 @@
+clustering
+  calc params
+    use first as prototype
+     iterate over objects - if null in one of the set - mark as param and define domain
+     iterate over values - if not all the same - mark as param and define domain
+  run on big sites
+    show results with jBart and d3
+        
+

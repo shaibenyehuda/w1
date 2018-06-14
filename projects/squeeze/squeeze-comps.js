@@ -1,4 +1,6 @@
-clusters = pageClustering(siteAsJson,rendererModel);
+cluster = pageClustering(siteAsJson,rendererModel);
+clusters = cluster.init();
+cluster.statistics();
 
 jb.const('cossy_siteAsJson',siteAsJson);
 jb.const('cossy_rendererModel',rendererModel);
