@@ -1,6 +1,13 @@
+{}
+
+
+
+
 {
     $: 'Button', 
-    style :{$: 'simple-button1'}, text: 'hello',
+    style :{$: 'square-button', skin: {$: 'button-blue' }}, 
+    text: 'hello',
+    style :{$: 'simple-button-square-blue'}, text: 'hello',
     layout: '100 123 123 1'
 }
 
@@ -80,7 +87,7 @@ comp('Product-fancy1', {
     },
     impl :{$: 'Box', comps: [
         {$: 'Text', text: 'Buy Now'},
-        {$: 'Button', text: '%$buttonText%', action: {$: 'paypal', price: '%$price%'} },
+        {$: 'Button', text: '%$title%', action: {$: 'paypal', price: '%$price%'} },
     ],
         animation :{$: 'leftToRight', speed: '1',  }
     }
