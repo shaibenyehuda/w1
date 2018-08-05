@@ -5,14 +5,17 @@
 
 {
     $: 'Button', 
-    style :{$: 'square-button', skin: {$: 'button-blue' }}, 
+    style :{$: 'square-button' }, 
     text: 'hello',
-    style :{$: 'simple-button-square-blue'}, text: 'hello',
-    layout: '100 123 123 1'
+    action: {$: 'gotoLink', }
+    position: '100 123'
 }
 
 
-{ $:'box', features :{$: 'background', color: '#23432' },
+{ $:'box', 
+    features :{$: 'background', color: '#23432' },
+}
+
 comps: [
     { $: 'Button', style :{$: 'plain-button'}, text: 'me',
     layout: '100 200 34 34',

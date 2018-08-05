@@ -267,6 +267,11 @@ const clusterCalc = {
         self.paramObjs.forEach(paramObj=>paramObj.params.forEach(param=>
             fields[param.id] = { displayName: param.id, type: param.collectionType || 'text'}));
         self.collectionDef= { id: self.id, displayName: self.id, displayField: 'title', fields }
+        
+        const fldArray = [].concat.apply([],self.paramObjs.map(paramObj=>paramObj.params.map(param=>param.id)));
+        self.dbAsCSV = [fldArray.map(x=>`"${x}"`).join(','), ...rows.map(r=>fldArray
+            .map(f=>'"'+r[f].replace(/"/g,'""')+'"')
+            .join(',')) ].join('\r\n');
     },
     addRouter(self) {
         const routerPtr = ds.routers.add(
@@ -308,18 +313,29 @@ const clusterCalc = {
     },
     connectParams(self) {
         self.paramObjs.forEach(paramObj=>{
-            paramObj.params.forEach(param=> ds.platform.controllers.connections.connect(
-                { type: "DESKTOP", id: compIdOfPage(self.page.value,paramObj.path) },
-                self.pageControllerRef,
-                'textRole', // ??
-                { properties: { label: { fieldName: param.id }, $text: { fieldName: param.id }  }} 
-            ))
+            paramObj.params.forEach(param=> {
+                try {
+                    ds.platform.controllers.connections.connect(
+                        { type: "DESKTOP", id: compIdOfPage(self.page.value,paramObj.path) },
+                        self.pageControllerRef,
+                        'textRole', // ??
+                        { properties: { label: { fieldName: param.id }, $text: { fieldName: param.id }  }}
+                    )
+                } catch(e) {
+                    console.log(`can not set connection to ${self.id}::${param.id}`)
+                }
+          })
         })
     },
     injectDataBinding(self) {
         this.addControllerToPage(self);
         this.addDynamicPageRouter(self);
-        setTimeout(()=>this.connectParams(self),1); // why on next timer??
+        return new Promise(resolve=>{
+            setTimeout(()=>{ 
+                this.connectParams(self) 
+                resolve() 
+            },1000); // why delay??
+        })
     },
     bulkInsertToCollection(self) {
         const instance = _.find(rendererModel.clientSpecMap,x=>x.type == 'siteextension').instance;
@@ -335,6 +351,9 @@ const clusterCalc = {
             }
         )
     },        
+    toCSV(self) {
+
+    },
     wixCode(self) {
         return `import wixWindow from 'wix-window';\n\n$w.onReady(function () { \n const data = wixWindow.getRouterData();\n`+
             self.paramObjs.map(paramObj=>{
@@ -350,12 +369,14 @@ let clusters = [];
 
 return {
     clusterCalc,
-    injectDataBinding() {
+    run() {
         this.init();
         this.injectCollections();
-        clusters.forEach(cl=>clusterCalc.injectDataBinding(cl) );
+        clusters.reduce((promise,cl) => 
+            promise.then(()=>clusterCalc.injectDataBinding(cl)), Promise.resolve() )
+        .then(()=>this.removeRedundentPages())
     },
-    run() {
+    runWixCode() {
         this.init();
         this.removeRedundentPages();
         this.injectDB();

@@ -1,8 +1,8 @@
 {
   "name": "Wix Page Cluster",
-  "version": "0.0.1",
+  "version": "0.2",
   "manifest_version": 2,
-  "description": "Replace static pages with one dynamic page",
+  "description": "Replace static pages with dynamic pages by clustering",
   "homepage_url": "http://wix.com",
   "web_accessible_resources" : ["lib/jsonpath.js","lib/cycle.js","squeeze-in-editor.js","cluster.js","router-file-content.js"],
   "background": {
