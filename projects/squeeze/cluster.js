@@ -106,7 +106,7 @@ pageClustering = function(siteAsJson, rendererModel,preview) {
             params: ctx => {
                 var instance = jsonpath.query(rendererModel,`$..*[?(@.applicationId=="${ctx.protoDataObj.applicationId}")]`)[0].instance;
                        
-                return [ { id: 'this', 
+                return [ { id: 'this', collectionType: 'media-gallery',
                     get: page=> 
                         `https://progallery.wix.com/gallery.html?compId=${applyPath(page.structure.components,ctx.path).id}&instance=${instance}`
                 } ]
@@ -239,28 +239,11 @@ const clusterCalc = {
         //     .join(',')) ].join('\r\n');
     },
     enrichDBValues(self) {
-        function enrichRow(r) {
-            Object.getOwnPropertyNames(r).filter(prop=>/^WixProGallery/.test(prop))
-                .reduce((pr, prop) => {
-                    if (/^http/.test(r[prop]))
-                      return fetch(r[prop])
-                        .then(res=>{
-                            if (!res.ok) return;
-                            return res.text().then(html=>{
-                                if ((''+html).indexOf('ng-app="wixErrorPagesApp"') != -1) return;
-                                let txt = html.substring(html.indexOf('window.prerenderedGallery ='));
-                                txt = txt.substring(txt.indexOf('({"items"'));
-                                txt = txt.substring(0,txt.indexOf('try {')).trim().slice(0,-1);
-                                const gallery = eval(txt);
-                                r[prop+ '_url'] = r[prop];
-                                r[prop] = gallery;
-                            })
-                        })
-                } , Promise.resolve())
-        }
-
-        self.rows.reduce((pr,row) =>
-            pr.then(enrichRow(row)), Promise.resolve())
+        const noOfGalleryProps = self.paramObjs.filter(x=>x.id === 'WixProGallery').length;
+        console.log('fetching ' + (noOfGalleryProps * self.pages.length) + ' galleries for cluster ' + self.id 
+            + ' ' + clusters.findIndex(x=>x.id === self.id) +'/' + clusters.length) ;
+        return self.rows.reduce((pr,row) =>
+            pr.then(() => enrichRowWithGalleries(row)), Promise.resolve())
     },
     addRouter(self) {
         const routerPtr = ds.routers.add(
@@ -328,10 +311,12 @@ const clusterCalc = {
     },
     bulkInsertToCollection(self) {
         const instance = _.find(rendererModel.clientSpecMap,x=>x.type == 'siteextension').instance;
-        const bulkSize = 10;
-        const bulks = Array.from(new Array(Math.floor(self.rows.length/bulkSize)+1).keys()).map(i=>
-            [self.id,self.rows.slice(i*bulkSize, (i+1)*bulkSize),{}]);
-        return bulks.reduce((promise,bulk)=>promise.then(()=>doBulkInsert(bulk)), Promise.resolve());
+        return this.enrichDBValues(self).then(() => {
+            const bulkSize = 10;
+            const bulks = Array.from(new Array(Math.floor(self.rows.length/bulkSize)+1).keys()).map(i=>
+                [self.id,self.rows.slice(i*bulkSize, (i+1)*bulkSize),{}]);
+            bulks.reduce((promise,bulk)=>promise.then(()=>doBulkInsert(bulk)), Promise.resolve())
+        });
 
         function doBulkInsert(bulkInsertParams) {
             return fetch(
@@ -471,3 +456,51 @@ return {
   }
 }
  
+function enrichRowWithGalleries(row) {
+    const slugify = text => 
+        text.toString().toLowerCase().replace(/\s+/g, '-').replace(/[^\w\-]+/g, '').replace(/\-\-+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+    const formatMediaUrlToSrc = (mediaUrl, meta) =>
+        'wix:image://v1/' + (mediaUrl || slugify(meta.name)) + '/' + slugify(meta.fileName) + '#originWidth=' + meta.width + '&originHeight=' + meta.height;
+
+    return Object.getOwnPropertyNames(row)
+        .filter(prop=>/^WixProGallery/.test(prop))
+        .reduce((pr, prop) => {
+            if (/^http/.test(row[prop]))
+            return fetch(row[prop])
+                .then(res=>{
+                    if (!res.ok) return;
+                    return res.text().then(html=>{
+                        if ((''+html).indexOf('ng-app="wixErrorPagesApp"') != -1) return;
+                        let txt = html.substring(html.indexOf('window.prerenderedGallery ='));
+                        txt = txt.substring(txt.indexOf('({"items"'));
+                        txt = txt.substring(0,txt.indexOf('try {')).trim().slice(0,-1);
+                        const gallery = eval(txt);
+                        row[prop+ '_url'] = row[prop];
+                        row[prop] = gallery.items.map(item=>proGalleryItemToWixCode(item));
+                    })
+                })
+        } , Promise.resolve())
+
+    function proGalleryItemToWixCode(item) {
+        const metaStr = item.metaData || item.metadata || '{}';
+        const meta = JSON.parse(metaStr.replace(/\\"/g,'"'));
+        const type = meta.type || 'image';
+        const res = { type, link: item.url, target: item.target, slug: item.itemId, title: meta.title, description: meta.description }
+        if (type === 'text') {
+        const style = meta.testStyle || {};
+        Object.assign(res, {
+            html: meta.html,
+            style: { width: style.width, height: style.height, bgColor: style.backgroundColor }
+        });
+        } else if (type === 'image') {
+            Object.assign(res, {
+            src: formatMediaUrlToSrc(item.mediaUrl, meta),
+            settings: { focalPoint: meta.focalPoint }
+            });
+        } else if (type === 'video') {
+            Object.assign(res, { src: item.mediaUrl, thumbnail: item.mediaUrl });
+        }
+        return res;
+    }
+}  
+  
