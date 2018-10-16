@@ -1,6 +1,6 @@
 {
   "name": "Wix Page Cluster",
-  "version": "0.2",
+  "version": "0.5",
   "manifest_version": 2,
   "description": "Replace static pages with dynamic pages by clustering",
   "homepage_url": "http://wix.com",
@@ -11,6 +11,7 @@
     ],
     "persistent": true
   },
+  "icons": { "16": "icon-16.png" },
   "browser_action": {
     "default_title": "Cluster pages"
   },

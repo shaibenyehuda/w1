@@ -7,9 +7,9 @@ function gotoPreview() {
 fixJSON = o => JSON.parse(JSON.stringify(JSON.decycle(o)));
 
 setTimeout(_=>{
-    const preview = Array.from(window.parent.frames).filter(x=>{try {return x.siteAsJson} catch (e) {}})[0];
+    let preview = [window, ...Array.from(window.parent.frames)].filter(x=>{try {return x.siteAsJson} catch (e) {}})[0];
     const siteAsJson = fixJSON(preview.siteAsJson);
     const rendererModel = fixJSON(preview.rendererModel);
-    cluster = new pageClustering(siteAsJson,rendererModel,preview);
     ds = preview.documentServices;
+    cluster = new pageClustering(siteAsJson,rendererModel,preview, ds, editorAPI);
 },1000) // wait for libs to load
