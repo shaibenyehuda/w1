@@ -19,7 +19,6 @@
   "dependencies": {
     "jsonpath": "^1.0.0",
     "node-fetch": "^2.1.2",
-    "pro-gallery-items-formatter": "^1.0.5",
     "rxjs": "^6.2.0"
   },
   "devDependencies": {

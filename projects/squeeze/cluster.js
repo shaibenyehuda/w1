@@ -368,6 +368,9 @@ let clusters = [];
 
 return {
     clusterCalc, errors, logs,
+    spreadsheet() {
+        this.calcClusters();
+    },
     run() {
         this.calcClusters();
         this.injectCollections()
